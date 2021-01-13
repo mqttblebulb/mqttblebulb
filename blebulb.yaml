@@ -1,0 +1,21 @@
+# insert for home assistant configuration.yaml
+light:
+  - platform: mqtt
+    name: 'Office RGB light'
+    state_topic: 'office/rgb1/light/status'
+    command_topic: 'office/rgb1/light/switch'
+    brightness_state_topic: 'office/rgb1/brightness/status'
+    brightness_command_topic: 'office/rgb1/brightness/set'
+    color_temp_state_topic: "office/rgb1/ct/status"
+    color_temp_command_topic: "office/rgb1/ct/set"
+    rgb_state_topic: 'office/rgb1/rgb/status'
+    rgb_command_topic: 'office/rgb1/rgb/set'
+    brightness_scale: 100
+    optimistic: false
+    payload_on: "ON"
+    payload_off: "OFF"
+    payload_available: "Online"
+    payload_not_available: "Offline"
+    qos: 1
+    retain: false
+
