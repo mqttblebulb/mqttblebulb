@@ -70,25 +70,6 @@ def publishRGBState( idx ):
 
 ####################################
  
-def publishRGBBrightness(idx):
-  global m_rgb_state
-  global m_rgb_brightness
-  global m_rgb_red
-  global m_rgb_green
-  global m_rgb_blue
-
-  global max_colortemp
-  global min_colortemp
-  global m_color_temp
-  global mqttroot
-  global statustopics
-
-  m_msg_buffer = ("%d" %  m_rgb_brightness)
-  mqtttopic = mqttroot[idx] . '/' . statustopics[3]
-  client.publish(mqtttopic, m_msg_buffer, true)
-
-####################################
- 
 def publishCTTemp(idx):
   global m_rgb_state
   global m_rgb_brightness
@@ -105,6 +86,25 @@ def publishCTTemp(idx):
   m_msg_buffer = ( "%d" %  m_color_temp )
   mqtttopic = mqttroot[idx] . '/' . statustopics[2]
   client.publish(mqttttopic, m_msg_buffer, true)
+
+####################################
+ 
+def publishRGBBrightness(idx):
+  global m_rgb_state
+  global m_rgb_brightness
+  global m_rgb_red
+  global m_rgb_green
+  global m_rgb_blue
+
+  global max_colortemp
+  global min_colortemp
+  global m_color_temp
+  global mqttroot
+  global statustopics
+
+  m_msg_buffer = ("%d" %  m_rgb_brightness)
+  mqtttopic = mqttroot[idx] . '/' . statustopics[3]
+  client.publish(mqtttopic, m_msg_buffer, true)
 
 ####################################
  
@@ -126,9 +126,6 @@ def publishRGBColor():
   client.publish(mqttttopic, m_msg_buffer, true)
 
 ####################################
-## this needs to be modified for using different bulbs and defineable 
-#  topics.
-###################################
 
 def setColor(ledidx, red, green, blue ):
   global m_rgb_state
@@ -168,11 +165,6 @@ def setColor(ledidx, red, green, blue ):
 
 ####################################
  
-####################################
-## this needs to be modified for using different bulbs and defineable 
-#  topics.
-###################################
-
 def setWhite( ledidx, ct ):
   global m_rgb_state
   global m_rgb_brightness
@@ -205,9 +197,6 @@ def setWhite( ledidx, ct ):
 ####################################
  
 ####################################
-## this needs to be modified for using different bulbs and defineable 
-#  topics.
-###################################
 
 def setBrightness( ledidx, bright ):
   global m_rgb_state
@@ -314,6 +303,11 @@ def on_message(client, userdata, msg):
           setColor(i, 0, 0, 0)
           publishRGBState( i )
   
+    elif j == 2:
+      CT = payload
+      setWhite (i,  CT )
+      publishCTTemp( i )
+  
     elif j == 3:
       #do something
       brightness = int( payload )
@@ -325,11 +319,6 @@ def on_message(client, userdata, msg):
         # setColor(i, m_rgb_red, m_rgb_green, m_rgb_blue)
         setBrightness(i,  brightness )
         publishRGBBrightness( i )
-  
-    elif j == 2:
-      CT = payload
-      setWhite (i,  CT )
-      publishCTTemp( i )
   
     elif j == 4:
       #  colors (rgb)
