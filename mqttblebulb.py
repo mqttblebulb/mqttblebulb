@@ -5,13 +5,13 @@ import json
 import sys
 import paho.mqtt.client as mqtt
 
+# mqtt server and bulbs are defined in config.inc.py.
+# there is a sample file, config.inc.py.sample that can be copied for 
+# reference and modified to config.inc.py .
+
+import config.inc.py
+
 from govee_btled import BluetoothLED
-
-# The only values that need to be defined
-
-bulbmac = 'XX:XX:XX:XX:XX:XX'
-mqttBroker = "mqttserver ip or address"
-mqttBrokerPort = 1883
 
 # define initial values for on, off , brightness, color
 # define mqtt topics
@@ -20,20 +20,12 @@ mqttBrokerPort = 1883
 #  MQTT: topics
 #  state
 
-MQTT_LIGHT_STATE_TOPIC = "office/rgb1/light/status"
-MQTT_LIGHT_COMMAND_TOPIC = "office/rgb1/light/switch"
+topicids = ['light','color temperature','brightness','rgbcolor']
 
-#  color temperature
-MQTT_COLOR_TEMP_STATE_TOPIC = "office/rgb1/ct/status"
-MQTT_COLOR_TEMP_COMMAND_TOPIC = "office/rgb1/ct/set"
-
-#  brightness
-MQTT_LIGHT_BRIGHTNESS_STATE_TOPIC = "office/rgb1/brightness/status"
-MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC = "office/rgb1/brightness/set"
-
-#  colors (rgb)
-MQTT_LIGHT_RGB_STATE_TOPIC = "office/rgb1/rgb/status"
-MQTT_LIGHT_RGB_COMMAND_TOPIC = "office/rgb1/rgb/set"
+#these get published
+statustopics = ["light/status","ct/status","brightness/status","rgb/status"]
+#these get subscribed
+cmdtopics = ["light/switch","ct/set","brightness/set","rgb/set"]
 
 LIGHT_ON = "ON"
 LIGHT_OFF = "OFF"
@@ -57,7 +49,7 @@ m_color_temp = 500
 # 
 ####################################
  
-def publishRGBState():
+def publishRGBState( idx ):
   global m_rgb_state
   global m_rgb_brightness
   global m_rgb_red
@@ -67,15 +59,18 @@ def publishRGBState():
   global max_colortemp
   global min_colortemp
   global m_color_temp
+  global mqttroot
+  global statustopics
 
+  mqtttopic = mqttroot[idx] . '/' . statustopics[1]
   if m_rgb_state :
-    client.publish( MQTT_LIGHT_STATE_TOPIC, LIGHT_ON, true )
+    client.publish( mqtttopic, LIGHT_ON, true )
   else :
-    client.publish( MQTT_LIGHT_STATE_TOPIC, LIGHT_OFF, true )
+    client.publish( mqtttopic, LIGHT_OFF, true )
 
 ####################################
  
-def publishRGBBrightness():
+def publishRGBBrightness(idx):
   global m_rgb_state
   global m_rgb_brightness
   global m_rgb_red
@@ -85,13 +80,16 @@ def publishRGBBrightness():
   global max_colortemp
   global min_colortemp
   global m_color_temp
+  global mqttroot
+  global statustopics
 
   m_msg_buffer = ("%d" %  m_rgb_brightness)
-  client.publish(MQTT_LIGHT_BRIGHTNESS_STATE_TOPIC, m_msg_buffer, true)
+  mqtttopic = mqttroot[idx] . '/' . statustopics[3]
+  client.publish(mqtttopic, m_msg_buffer, true)
 
 ####################################
  
-def publishCTTemp():
+def publishCTTemp(idx):
   global m_rgb_state
   global m_rgb_brightness
   global m_rgb_red
@@ -101,9 +99,12 @@ def publishCTTemp():
   global max_colortemp
   global min_colortemp
   global m_color_temp
+  global mqttroot
+  global statustopics
 
   m_msg_buffer = ( "%d" %  m_color_temp )
-  client.publish(MQTT_COLOR_TEMP_STATE_TOPIC, m_msg_buffer, true)
+  mqtttopic = mqttroot[idx] . '/' . statustopics[2]
+  client.publish(mqttttopic, m_msg_buffer, true)
 
 ####################################
  
@@ -117,13 +118,19 @@ def publishRGBColor():
   global max_colortemp
   global min_colortemp
   global m_color_temp
+  global mqttroot
+  global statustopics
 
   m_msg_buffer = ( "%d,%d,%d" % (m_rgb_red, m_rgb_green, m_rgb_blue))
-  client.publish(MQTT_LIGHT_RGB_STATE_TOPIC, m_msg_buffer, true)
+  mqtttopic = mqttroot[idx] . '/' . statustopics[4]
+  client.publish(mqttttopic, m_msg_buffer, true)
 
 ####################################
- 
-def setColor(red, green, blue ):
+## this needs to be modified for using different bulbs and defineable 
+#  topics.
+###################################
+
+def setColor(ledidx, red, green, blue ):
   global m_rgb_state
   global m_rgb_brightness
   global m_rgb_red
@@ -137,7 +144,7 @@ def setColor(red, green, blue ):
   global led
 
   try:
-    led.set_state(True)
+    led[ledidx].set_state(True)
   except:
     print ( "Cannot setstate led, is power on?" )
     sys.exit()
@@ -147,21 +154,26 @@ def setColor(red, green, blue ):
   print ( "hexcolor = " + hexcolor + "\n" )
 
   try:
-    led.set_color( hexcolor )
+    led[ledidx].set_color( hexcolor )
   except:
     print ( "Cannot setcolor led, is power on?" )
     sys.exit()
 
   if (red + green + blue ) == 0:
     try:
-      led.set_state(False)
+      led[ledidx].set_state(False)
     except:
       print ( "Cannot setstate led, is power on?" )
       sys.exit()
 
 ####################################
  
-def setWhite( ct ):
+####################################
+## this needs to be modified for using different bulbs and defineable 
+#  topics.
+###################################
+
+def setWhite( ledidx, ct ):
   global m_rgb_state
   global m_rgb_brightness
   global m_rgb_red
@@ -178,12 +190,12 @@ def setWhite( ct ):
   #  LEDs instead of the RGB LEDs.
   # ct is a value between 153 and 500 and must be scaled to -1 to 1
   # Supply a value between -1 (warm) and 1 (cold)
-  # led.set_color_white(-0.4) # range is -1 to 1
+  # led[ledidx].set_color_white(-0.4) # range is -1 to 1
 
   halfrange = ( max_colortemp - min_colortemp +1 )/ 2
   tempct = ( int(ct) - (min_colortemp + halfrange)) / halfrange
   try:
-    led.set_color_white( -tempct )
+    led[ledidx].set_color_white( -tempct )
   except:
     print ( "Cannot setstate led, is power on?" )
     sys.exit()
@@ -192,7 +204,12 @@ def setWhite( ct ):
   
 ####################################
  
-def setBrightness( bright ):
+####################################
+## this needs to be modified for using different bulbs and defineable 
+#  topics.
+###################################
+
+def setBrightness( ledidx, bright ):
   global m_rgb_state
   global m_rgb_brightness
   global m_rgb_red
@@ -213,7 +230,7 @@ def setBrightness( bright ):
 
   tempbright = bright / 100
   try:
-    led.set_brightness( tempbright )
+    led[ledidx].set_brightness( tempbright )
   except:
     print ( "Cannot setbrightness led, is power on?" )
     sys.exit()
@@ -243,10 +260,12 @@ def on_connect(client, userdata, flags, rc):
   publishCTTemp()
 
   # client.subscribe("hello")
-  client.subscribe(MQTT_LIGHT_COMMAND_TOPIC)
-  client.subscribe(MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC)
-  client.subscribe(MQTT_LIGHT_RGB_COMMAND_TOPIC)
-  client.subscribe(MQTT_COLOR_TEMP_COMMAND_TOPIC)
+  # initialize these in batch for multiple bulbs as well as multiple topics
+  # defined in arrays.
+
+  for i in range(len(mqttroot))
+    for j in range(len(cmdtopics))
+      client.subscribe( mqttroot[i] . '/' . cmdtopics[j] )
 
 ####################################
  
@@ -268,93 +287,98 @@ def on_message(client, userdata, msg):
   print ( payload )
   print ( topic )
   
-  #  state
-  if topic ==  MQTT_LIGHT_COMMAND_TOPIC:
-    # print ("in the mqtt light command topic")
-    # print ( "light_on = " + LIGHT_ON + ":EOF" )
-    # print ( "light_off = " + LIGHT_OFF + ":EOF" )
-    # print ( "payload = " + payload + ":EOF" )
-    if (payload == LIGHT_ON ):
-      # print ("Time to turn it on!")
-      if (m_rgb_state != true):
-        m_rgb_state = true
-        setColor(m_rgb_red, m_rgb_green, m_rgb_blue)
-        publishRGBState()
+  for i in range(len(mqttroot))
+    for j in range(len(cmdtopics))
+      if topic == ( mqttroot[i] . '/' . cmdtopics[j] )
+      break
 
-    elif (payload == LIGHT_OFF ):
-      print ("Time to turn it off!")
-      if (m_rgb_state != false):
-        m_rgb_state = false
-        setColor(0, 0, 0)
-        publishRGBState()
-
-  elif topic == MQTT_LIGHT_BRIGHTNESS_COMMAND_TOPIC:
-    #do something
-    brightness = int( payload )
-    if (brightness < 0 or brightness > 100):
-      # do nothing...
-      return
-    else:
-      m_rgb_brightness = brightness
-      # setColor(m_rgb_red, m_rgb_green, m_rgb_blue)
-      setBrightness( brightness )
-      publishRGBBrightness()
-
-  elif topic == MQTT_COLOR_TEMP_COMMAND_TOPIC:
-    CT = payload
-    setWhite ( CT )
-    publishCTTemp()
-
-  elif topic == MQTT_LIGHT_RGB_COMMAND_TOPIC:
-    #  colors (rgb)
-    # The line below needs fixing, not sure how yet..
-    # rgb_red = payload.substring(0, firstIndex).toInt()
-
-    (pred, pgreen, pblue) = payload.split(",")
-    rgb_red = int(pred)
-    rgb_green = int(pgreen)
-    rgb_blue = int(pblue)
-
-    if (rgb_red < 0 or rgb_red > 255):
-      return
-    else:
-      m_rgb_red = rgb_red
-    
-    # The line below needs fixing, not sure how yet..
-    # rgb_green = payload.substring(firstIndex + 1, lastIndex).toInt()
-
-    if (rgb_green < 0 or rgb_green > 255):
-      return
-    else:
-      m_rgb_green = rgb_green
-    
-    # The line below needs fixing, not sure how yet..
-    # rgb_blue = payload.substring(lastIndex + 1).toInt()
-    if (rgb_blue < 0 or rgb_blue > 255):
-      return
-    else:
-      m_rgb_blue = rgb_blue
-    
-    setColor(m_rgb_red, m_rgb_green, m_rgb_blue)
-    publishRGBColor()
+    # change these states to be more generic since we have so many now.
+    # these will need to be specific to individual bulbs.
+    #  state
+    if j ==  1:
+      # print ("in the mqtt light command topic")
+      # print ( "light_on = " + LIGHT_ON + ":EOF" )
+      # print ( "light_off = " + LIGHT_OFF + ":EOF" )
+      # print ( "payload = " + payload + ":EOF" )
+      if (payload == LIGHT_ON ):
+        # print ("Time to turn it on!")
+        if (m_rgb_state != true):
+          m_rgb_state = true
+          setColor(i, m_rgb_red, m_rgb_green, m_rgb_blue)
+          publishRGBState( i )
+  
+      elif (payload == LIGHT_OFF ):
+        print ("Time to turn it off!")
+        if (m_rgb_state != false):
+          m_rgb_state = false
+          setColor(i, 0, 0, 0)
+          publishRGBState( i )
+  
+    elif j == 3:
+      #do something
+      brightness = int( payload )
+      if (brightness < 0 or brightness > 100):
+        # do nothing...
+        return
+      else:
+        m_rgb_brightness = brightness
+        # setColor(i, m_rgb_red, m_rgb_green, m_rgb_blue)
+        setBrightness(i,  brightness )
+        publishRGBBrightness( i )
+  
+    elif j == 2:
+      CT = payload
+      setWhite (i,  CT )
+      publishCTTemp( i )
+  
+    elif j == 4:
+      #  colors (rgb)
+      # The line below needs fixing, not sure how yet..
+      # rgb_red = payload.substring(0, firstIndex).toInt()
+  
+      (pred, pgreen, pblue) = payload.split(",")
+      rgb_red = int(pred)
+      rgb_green = int(pgreen)
+      rgb_blue = int(pblue)
+  
+      if (rgb_red < 0 or rgb_red > 255):
+        return
+      else:
+        m_rgb_red = rgb_red
+      
+      # The line below needs fixing, not sure how yet..
+      # rgb_green = payload.substring(firstIndex + 1, lastIndex).toInt()
+  
+      if (rgb_green < 0 or rgb_green > 255):
+        return
+      else:
+        m_rgb_green = rgb_green
+      
+      # The line below needs fixing, not sure how yet..
+      # rgb_blue = payload.substring(lastIndex + 1).toInt()
+      if (rgb_blue < 0 or rgb_blue > 255):
+        return
+      else:
+        m_rgb_blue = rgb_blue
+      
+      setColor(i, m_rgb_red, m_rgb_green, m_rgb_blue)
+      publishRGBColor( i )
 
 # this is the end of the different topics
 
 ##########################################
 
-try:
-  led = BluetoothLED( bulbmac )
-except:
-  print ( "Cannot open led, is power on?" )
-  sys.exit()
+# initialize bluetooth connections for the bulbs defined in config
 
-
-try:
-  led.ping()
-except:
-  print ( "Cannot first ping led, is power on?" )
-  sys.exit()
-
+for i in range(len(bulbmacs))
+  try:
+    led[i] = BluetoothLED( bulbmacs[i] )
+  except:
+    print ( "Cannot open led " . bulbmacs[i] . ", is power on?" )
+    # some how mark this as a 'bad' bulb, and move on, initializing
+    # the other bulbs.  FOR NOW, just exit.
+    sys.exit()
+  
 prevtime=time.time()
 client = mqtt.Client()
 client.on_connect = on_connect
@@ -362,21 +386,5 @@ client.on_message = on_message
 
 client.connect(mqttBroker,mqttBrokerPort,60)
 
-client.loop_start()
+client.loop_forever()
 
-while True:
-  currtime = time.time()
-  if ( currtime > (prevtime + 1.5 )):
-    print ( "ping led bulb: " + str (currtime) )
-    try:
-      led.ping()
-    except:
-      print ( "Cannot ping led, is power on?" )
-      sys.exit()
-
-    prevtime = currtime
-
-#### Should never get here
-client.loop_stop()
-
-##########################################
