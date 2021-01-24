@@ -9,7 +9,10 @@ import paho.mqtt.client as mqtt
 # there is a sample file, config.inc.py.sample that can be copied for 
 # reference and modified to config.inc.py .
 
-import config.inc.py
+from config import *
+
+global bulbmacs
+global mqttroots
 
 from govee_btled import BluetoothLED
 
@@ -26,6 +29,9 @@ topicids = ['light','color temperature','brightness','rgbcolor']
 statustopics = ["light/status","ct/status","brightness/status","rgb/status"]
 #these get subscribed
 cmdtopics = ["light/switch","ct/set","brightness/set","rgb/set"]
+
+for i in range(len(cmdtopics)):
+  print ( "cmdtopics[" + str(i) + "]: " + cmdtopics[i] )
 
 LIGHT_ON = "ON"
 LIGHT_OFF = "OFF"
@@ -59,10 +65,10 @@ def publishRGBState( idx ):
   global max_colortemp
   global min_colortemp
   global m_color_temp
-  global mqttroot
+  global mqttroots
   global statustopics
 
-  mqtttopic = mqttroot[idx] . '/' . statustopics[1]
+  mqtttopic = mqttroots[idx] + "/" + statustopics[0]
   if m_rgb_state :
     client.publish( mqtttopic, LIGHT_ON, true )
   else :
@@ -80,12 +86,12 @@ def publishCTTemp(idx):
   global max_colortemp
   global min_colortemp
   global m_color_temp
-  global mqttroot
+  global mqttroots
   global statustopics
 
   m_msg_buffer = ( "%d" %  m_color_temp )
-  mqtttopic = mqttroot[idx] . '/' . statustopics[2]
-  client.publish(mqttttopic, m_msg_buffer, true)
+  mqtttopic = mqttroots[idx] + '/' + statustopics[1]
+  client.publish(mqtttopic, m_msg_buffer, true)
 
 ####################################
  
@@ -99,16 +105,16 @@ def publishRGBBrightness(idx):
   global max_colortemp
   global min_colortemp
   global m_color_temp
-  global mqttroot
+  global mqttroots
   global statustopics
 
   m_msg_buffer = ("%d" %  m_rgb_brightness)
-  mqtttopic = mqttroot[idx] . '/' . statustopics[3]
+  mqtttopic = mqttroots[idx] + '/' + statustopics[2]
   client.publish(mqtttopic, m_msg_buffer, true)
 
 ####################################
  
-def publishRGBColor():
+def publishRGBColor(idx):
   global m_rgb_state
   global m_rgb_brightness
   global m_rgb_red
@@ -118,12 +124,13 @@ def publishRGBColor():
   global max_colortemp
   global min_colortemp
   global m_color_temp
-  global mqttroot
+  global mqttroots
   global statustopics
 
+  print ( "statustopics count = " + str(len(statustopics)) )
   m_msg_buffer = ( "%d,%d,%d" % (m_rgb_red, m_rgb_green, m_rgb_blue))
-  mqtttopic = mqttroot[idx] . '/' . statustopics[4]
-  client.publish(mqttttopic, m_msg_buffer, true)
+  mqtttopic = mqttroots[idx] + '/' + statustopics[3]
+  client.publish(mqtttopic, m_msg_buffer, true)
 
 ####################################
 
@@ -243,18 +250,20 @@ def on_connect(client, userdata, flags, rc):
 
   # Once connected publish an announcement and initial values
 
-  publishRGBState()
-  publishRGBBrightness()
-  publishRGBColor()
-  publishCTTemp()
+  for i in range(len(mqttroots)):
+
+    publishRGBState(i)
+    publishRGBBrightness(i)
+    publishRGBColor(i)
+    publishCTTemp(i)
 
   # client.subscribe("hello")
   # initialize these in batch for multiple bulbs as well as multiple topics
   # defined in arrays.
 
-  for i in range(len(mqttroot))
-    for j in range(len(cmdtopics))
-      client.subscribe( mqttroot[i] . '/' . cmdtopics[j] )
+  for i in range(len(mqttroots)):
+      for j in range(len(cmdtopics)):
+        client.subscribe( mqttroots[i] + '/' + cmdtopics[j] )
 
 ####################################
  
@@ -276,21 +285,24 @@ def on_message(client, userdata, msg):
   print ( payload )
   print ( topic )
   
-  for i in range(len(mqttroot))
-    for j in range(len(cmdtopics))
-      if topic == ( mqttroot[i] . '/' . cmdtopics[j] )
-      break
+  match = 0
+  for i in range(len(mqttroots)):
+    for j in range(len(cmdtopics)):
+      if (topic != ( mqttroots[i] + '/' + cmdtopics[j] )):
+         continue
+      else:
+         match = 1
+         break
+
+    if match != 1:
+       continue
 
     # change these states to be more generic since we have so many now.
     # these will need to be specific to individual bulbs.
     #  state
-    if j ==  1:
-      # print ("in the mqtt light command topic")
-      # print ( "light_on = " + LIGHT_ON + ":EOF" )
-      # print ( "light_off = " + LIGHT_OFF + ":EOF" )
-      # print ( "payload = " + payload + ":EOF" )
+    if j ==  0:
       if (payload == LIGHT_ON ):
-        # print ("Time to turn it on!")
+        print ("Time to turn it on!")
         if (m_rgb_state != true):
           m_rgb_state = true
           setColor(i, m_rgb_red, m_rgb_green, m_rgb_blue)
@@ -303,16 +315,14 @@ def on_message(client, userdata, msg):
           setColor(i, 0, 0, 0)
           publishRGBState( i )
   
-    elif j == 2:
+    elif j == 1:
       CT = payload
       setWhite (i,  CT )
       publishCTTemp( i )
   
-    elif j == 3:
-      #do something
+    elif j == 2:
       brightness = int( payload )
       if (brightness < 0 or brightness > 100):
-        # do nothing...
         return
       else:
         m_rgb_brightness = brightness
@@ -320,7 +330,7 @@ def on_message(client, userdata, msg):
         setBrightness(i,  brightness )
         publishRGBBrightness( i )
   
-    elif j == 4:
+    elif j == 3:
       #  colors (rgb)
       # The line below needs fixing, not sure how yet..
       # rgb_red = payload.substring(0, firstIndex).toInt()
@@ -353,20 +363,26 @@ def on_message(client, userdata, msg):
       setColor(i, m_rgb_red, m_rgb_green, m_rgb_blue)
       publishRGBColor( i )
 
+    if match == 1:
+       break
+
 # this is the end of the different topics
 
 ##########################################
 
 # initialize bluetooth connections for the bulbs defined in config
 
-for i in range(len(bulbmacs))
+led = []
+
+for i in range(len(bulbmacs)):
   try:
-    led[i] = BluetoothLED( bulbmacs[i] )
+    led.append ( BluetoothLED( bulbmacs[i] ))
   except:
-    print ( "Cannot open led " . bulbmacs[i] . ", is power on?" )
+    print ( "Cannot open led " + bulbmacs[i] + ", is power on?" )
     # some how mark this as a 'bad' bulb, and move on, initializing
     # the other bulbs.  FOR NOW, just exit.
     sys.exit()
+  # led.append(i) = tstled
   
 prevtime=time.time()
 client = mqtt.Client()
