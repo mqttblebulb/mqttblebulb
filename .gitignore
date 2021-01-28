@@ -1,2 +1,4 @@
 *.swp
 /config.inc.py
+/__pycache__/config.cpython-37.pyc
+/config.py
