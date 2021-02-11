@@ -373,7 +373,7 @@ def on_message(client, userdata, msg):
   match = 0
   for i in range(len(mqttroots)):
     if goodled[i] == 0:    # this bulb has been marked as bad
-      print ( "on_message: bulb " + bulbmacs[i]) + " is disabled."
+      print ( "on_message: bulb " + bulbmacs[i] + " is disabled." )
       continue
 
     for j in range(len(cmdtopics)):
